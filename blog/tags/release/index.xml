@@ -1,0 +1,624 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Apache Airflow – release</title>
+    <link>/blog/tags/release/</link>
+    <description>Recent content in release on Apache Airflow</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Thu, 17 Dec 2020 00:00:00 +0000</lastBuildDate>
+    
+	  <atom:link href="/blog/tags/release/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+      
+        
+      
+    
+    
+    <item>
+      <title>Blog: Apache Airflow 2.0 is here!</title>
+      <link>/blog/airflow-two-point-oh-is-here/</link>
+      <pubDate>Thu, 17 Dec 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/airflow-two-point-oh-is-here/</guid>
+      <description>
+        
+        
+        
+
+&lt;p&gt;I am proud to announce that Apache Airflow 2.0.0 has been released.&lt;/p&gt;
+
+&lt;p&gt;The full changelog is about 3,000 lines long (already excluding everything backported to 1.10), so for now I&amp;rsquo;ll simply share some of the major features in 2.0.0 compared to 1.10.14:&lt;/p&gt;
+
+&lt;h2 id=&#34;a-new-way-of-writing-dags-the-taskflow-api-aip-31&#34;&gt;A new way of writing dags: the TaskFlow API (AIP-31)&lt;/h2&gt;
+
+&lt;p&gt;(Known in 2.0.0alphas as Functional DAGs.)&lt;/p&gt;
+
+&lt;p&gt;DAGs are now much much nicer to author especially when using PythonOperator. Dependencies are handled more clearly and XCom is nicer to use&lt;/p&gt;
+
+&lt;p&gt;Read more here:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;http://airflow.apache.org/docs/apache-airflow/stable/tutorial_taskflow_api.html&#34; target=&#34;_blank&#34;&gt;TaskFlow API Tutorial&lt;/a&gt; &lt;br /&gt;
+&lt;a href=&#34;https://airflow.apache.org/docs/apache-airflow/stable/concepts.html#decorated-flows&#34; target=&#34;_blank&#34;&gt;TaskFlow API Documentation&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;A quick teaser of what DAGs can now look like:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;from airflow.decorators import dag, task
+from airflow.utils.dates import days_ago
+
+@dag(default_args={&#39;owner&#39;: &#39;airflow&#39;}, schedule_interval=None, start_date=days_ago(2))
+def tutorial_taskflow_api_etl():
+   @task
+   def extract():
+       return {&amp;quot;1001&amp;quot;: 301.27, &amp;quot;1002&amp;quot;: 433.21, &amp;quot;1003&amp;quot;: 502.22}
+
+   @task
+   def transform(order_data_dict: dict) -&amp;gt; dict:
+       total_order_value = 0
+
+       for value in order_data_dict.values():
+           total_order_value += value
+
+       return {&amp;quot;total_order_value&amp;quot;: total_order_value}
+
+   @task()
+   def load(total_order_value: float):
+
+       print(&amp;quot;Total order value is: %.2f&amp;quot; % total_order_value)
+
+   order_data = extract()
+   order_summary = transform(order_data)
+   load(order_summary[&amp;quot;total_order_value&amp;quot;])
+
+tutorial_etl_dag = tutorial_taskflow_api_etl()
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;fully-specified-rest-api-aip-32&#34;&gt;Fully specified REST API (AIP-32)&lt;/h2&gt;
+
+&lt;p&gt;We now have a fully supported, no-longer-experimental API with a comprehensive OpenAPI specification&lt;/p&gt;
+
+&lt;p&gt;Read more here:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;http://airflow.apache.org/docs/apache-airflow/stable/stable-rest-api-ref.html&#34; target=&#34;_blank&#34;&gt;REST API Documentation&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;massive-scheduler-performance-improvements&#34;&gt;Massive Scheduler performance improvements&lt;/h2&gt;
+
+&lt;p&gt;As part of AIP-15 (Scheduler HA+performance) and other work Kamil did, we significantly improved the performance of the Airflow Scheduler. It now starts tasks much, MUCH quicker.&lt;/p&gt;
+
+&lt;p&gt;Over at Astronomer.io we&amp;rsquo;ve &lt;a href=&#34;https://www.astronomer.io/blog/airflow-2-scheduler&#34; target=&#34;_blank&#34;&gt;benchmarked the scheduler—it&amp;rsquo;s fast&lt;/a&gt; (we had to triple check the numbers as we don&amp;rsquo;t quite believe them at first!)&lt;/p&gt;
+
+&lt;h2 id=&#34;scheduler-is-now-ha-compatible-aip-15&#34;&gt;Scheduler is now HA compatible (AIP-15)&lt;/h2&gt;
+
+&lt;p&gt;It&amp;rsquo;s now possible and supported to run more than a single scheduler instance. This is super useful for both resiliency (in case a scheduler goes down) and scheduling performance.&lt;/p&gt;
+
+&lt;p&gt;To fully use this feature you need Postgres 9.6+ or MySQL 8+ (MySQL 5, and MariaDB won&amp;rsquo;t work with more than one scheduler I&amp;rsquo;m afraid).&lt;/p&gt;
+
+&lt;p&gt;There&amp;rsquo;s no config or other set up required to run more than one scheduler—just start up a scheduler somewhere else (ensuring it has access to the DAG files) and it will cooperate with your existing schedulers through the database.&lt;/p&gt;
+
+&lt;p&gt;For more information, read the &lt;a href=&#34;http://airflow.apache.org/docs/apache-airflow/stable/scheduler.html#running-more-than-one-scheduler&#34; target=&#34;_blank&#34;&gt;Scheduler HA documentation&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;task-groups-aip-34&#34;&gt;Task Groups (AIP-34)&lt;/h2&gt;
+
+&lt;p&gt;SubDAGs were commonly used for grouping tasks in the UI, but they had many drawbacks in their execution behaviour (primarily that they only executed a single task in parallel!) To improve this experience, we’ve introduced &amp;ldquo;Task Groups&amp;rdquo;: a method for organizing tasks which provides the same grouping behaviour as a subdag without any of the execution-time drawbacks.&lt;/p&gt;
+
+&lt;p&gt;SubDAGs will still work for now, but we think that any previous use of SubDAGs can now be replaced with task groups. If you find an example where this isn&amp;rsquo;t the case, please let us know by opening an issue on GitHub&lt;/p&gt;
+
+&lt;p&gt;For more information, check out the &lt;a href=&#34;http://airflow.apache.org/docs/apache-airflow/stable/concepts.html#taskgroup&#34; target=&#34;_blank&#34;&gt;Task Group documentation&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;refreshed-ui&#34;&gt;Refreshed UI&lt;/h2&gt;
+
+&lt;p&gt;We&amp;rsquo;ve given the Airflow UI &lt;a href=&#34;https://github.com/apache/airflow/pull/11195&#34; target=&#34;_blank&#34;&gt;a visual refresh&lt;/a&gt; and updated some of the styling.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;airflow-2.0-ui.gif&#34; alt=&#34;Airflow 2.0&#39;s new UI&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We have also added an option to auto-refresh task states in Graph View so you no longer need to continuously press the refresh button :).&lt;/p&gt;
+
+&lt;p&gt;Check out &lt;a href=&#34;http://airflow.apache.org/docs/apache-airflow/stable/ui.html&#34; target=&#34;_blank&#34;&gt;the screenshots in the docs&lt;/a&gt; for more.&lt;/p&gt;
+
+&lt;h2 id=&#34;smart-sensors-for-reduced-load-from-sensors-aip-17&#34;&gt;Smart Sensors for reduced load from sensors (AIP-17)&lt;/h2&gt;
+
+&lt;p&gt;If you make heavy use of sensors in your Airflow cluster, you might find that sensor execution takes up a significant proportion of your cluster even with &amp;ldquo;reschedule&amp;rdquo; mode. To improve this, we&amp;rsquo;ve added a new mode called &amp;ldquo;Smart Sensors&amp;rdquo;.&lt;/p&gt;
+
+&lt;p&gt;This feature is in &amp;ldquo;early-access&amp;rdquo;: it&amp;rsquo;s been well-tested by Airbnb and is &amp;ldquo;stable&amp;rdquo;/usable, but we reserve the right to make backwards incompatible changes to it in a future release (if we have to. We&amp;rsquo;ll try very hard not to!)&lt;/p&gt;
+
+&lt;p&gt;Read more about it in the &lt;a href=&#34;https://airflow.apache.org/docs/apache-airflow/stable/smart-sensor.html&#34; target=&#34;_blank&#34;&gt;Smart Sensors documentation&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;simplified-kubernetesexecutor&#34;&gt;Simplified KubernetesExecutor&lt;/h2&gt;
+
+&lt;p&gt;For Airflow 2.0, we have re-architected the KubernetesExecutor in a fashion that is simultaneously faster, easier to understand, and more flexible for Airflow users. Users will now be able to access the full Kubernetes API to create a .yaml &lt;code&gt;pod_template_file&lt;/code&gt; instead of specifying parameters in their airflow.cfg.&lt;/p&gt;
+
+&lt;p&gt;We have also replaced the &lt;code&gt;executor_config&lt;/code&gt; dictionary with the &lt;code&gt;pod_override&lt;/code&gt; parameter, which takes a Kubernetes V1Pod object for a1:1 setting override. These changes have removed over three thousand lines of code from the KubernetesExecutor, which makes it run faster and creates fewer potential errors.&lt;/p&gt;
+
+&lt;p&gt;Read more here:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;https://airflow.apache.org/docs/apache-airflow/stable/executor/kubernetes.html?highlight=pod_override#pod-template-file&#34; target=&#34;_blank&#34;&gt;Docs on pod_template_file&lt;/a&gt; &lt;br /&gt;
+&lt;a href=&#34;https://airflow.apache.org/docs/apache-airflow/stable/executor/kubernetes.html?highlight=pod_override#pod-override&#34; target=&#34;_blank&#34;&gt;Docs on pod_override&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;airflow-core-and-providers-splitting-airflow-into-60-packages&#34;&gt;Airflow core and providers: Splitting Airflow into 60+ packages:&lt;/h2&gt;
+
+&lt;p&gt;Airflow 2.0 is not a monolithic &amp;ldquo;one to rule them all&amp;rdquo; package. We’ve split Airflow into core and 61 (for now) provider packages. Each provider package is for either a particular external service (Google, Amazon, Microsoft, Snowflake), a database (Postgres, MySQL), or a protocol (HTTP/FTP). Now you can create a custom Airflow installation from &amp;ldquo;building&amp;rdquo; blocks and choose only what you need, plus add whatever other requirements you might have. Some of the common providers are installed automatically (ftp, http, imap, sqlite) as they are commonly used. Other providers are automatically installed when you choose appropriate extras when installing Airflow.&lt;/p&gt;
+
+&lt;p&gt;The provider architecture should make it much easier to get a fully customized, yet consistent runtime with the right set of Python dependencies.&lt;/p&gt;
+
+&lt;p&gt;But that’s not all: you can write your own custom providers and add things like custom connection types, customizations of the Connection Forms, and extra links to your operators in a manageable way. You can build your own provider and install it as a Python package and have your customizations visible right in the Airflow UI.&lt;/p&gt;
+
+&lt;p&gt;Our very own Jarek Potiuk has written about &lt;a href=&#34;https://higrys.medium.com/airflow-2-0-providers-1bd21ba3bd93&#34; target=&#34;_blank&#34;&gt;providers in much more detail&lt;/a&gt; on Jarek&amp;rsquo;s blog.&lt;/p&gt;
+
+&lt;p&gt;Docs on the &lt;a href=&#34;http://airflow.apache.org/docs/apache-airflow-providers/&#34; target=&#34;_blank&#34;&gt;providers concept and writing custom providers&lt;/a&gt; &lt;br /&gt;
+Docs on the &lt;a href=&#34;http://airflow.apache.org/docs/apache-airflow-providers/packages-ref.html&#34; target=&#34;_blank&#34;&gt;all providers packages available&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;security&#34;&gt;Security&lt;/h2&gt;
+
+&lt;p&gt;As part of Airflow 2.0 effort, there has been a conscious focus on Security and reducing areas of exposure. This is represented across different functional areas in different forms. For example, in the new REST API, all operations now require authorization. Similarly, in the configuration settings, the Fernet key is now required to be specified.&lt;/p&gt;
+
+&lt;h2 id=&#34;configuration&#34;&gt;Configuration&lt;/h2&gt;
+
+&lt;p&gt;Configuration in the form of the airflow.cfg file has been rationalized further in distinct sections, specifically around &amp;ldquo;core&amp;rdquo;. Additionally, a significant amount of configuration options have been deprecated or moved to individual component-specific configuration files, such as the pod-template-file for Kubernetes execution-related configuration.&lt;/p&gt;
+
+&lt;h2 id=&#34;thanks-to-all-of-you&#34;&gt;Thanks to all of you&lt;/h2&gt;
+
+&lt;p&gt;We&amp;rsquo;ve tried to make as few breaking changes as possible and to provide deprecation path in the code, especially in the case of anything called in the DAG. That said, please read through UPDATING.md to check what might affect you. For example: We have re-organized the layout of operators (they now all live under airflow.providers.*) but the old names should continue to work - you&amp;rsquo;ll just notice a lot of DeprecationWarnings that need to be fixed up.&lt;/p&gt;
+
+&lt;p&gt;Thank you so much to all the contributors who got us to this point, in no particular order: Kaxil Naik, Daniel Imberman, Jarek Potiuk, Tomek Urbaszek, Kamil Breguła, Gerard Casas Saez, Xiaodong DENG, Kevin Yang, James Timmins, Yingbo Wang, Qian Yu, Ryan Hamilton and the 100s of others who keep making Airflow better for everyone.&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>Blog: Apache Airflow 1.10.12</title>
+      <link>/blog/airflow-1.10.12/</link>
+      <pubDate>Tue, 25 Aug 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/airflow-1.10.12/</guid>
+      <description>
+        
+        
+        
+
+&lt;p&gt;Airflow 1.10.12 contains 113 commits since 1.10.11 and includes 5 new features, 23 improvements, 23 bug fixes,
+and several doc changes.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Details&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;PyPI&lt;/strong&gt;: &lt;a href=&#34;https://pypi.org/project/apache-airflow/1.10.12/&#34; target=&#34;_blank&#34;&gt;https://pypi.org/project/apache-airflow/1.10.12/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Docs&lt;/strong&gt;: &lt;a href=&#34;https://airflow.apache.org/docs/1.10.12/&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.12/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Changelog&lt;/strong&gt;: &lt;a href=&#34;http://airflow.apache.org/docs/1.10.12/changelog.html&#34; target=&#34;_blank&#34;&gt;http://airflow.apache.org/docs/1.10.12/changelog.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;Airflow 1.10.11 has breaking changes with respect to
+KubernetesExecutor &amp;amp; KubernetesPodOperator so I recommend users to directly upgrade to Airflow 1.10.12 instead&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;Some of the noteworthy new features (user-facing) are:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/8560&#34; target=&#34;_blank&#34;&gt;Allow defining custom XCom class&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/9645&#34; target=&#34;_blank&#34;&gt;Get Airflow configs with sensitive data from Secret Backends&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/10282&#34; target=&#34;_blank&#34;&gt;Add AirflowClusterPolicyViolation support to Airflow local settings&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&#34;allow-defining-custom-xcom-class&#34;&gt;Allow defining Custom XCom class&lt;/h3&gt;
+
+&lt;p&gt;Until Airflow 1.10.11, the XCom data was only stored in Airflow Metadatabase. From Airflow 1.10.12, users
+would be able to define custom XCom classes. This will allow users to transfer larger data between tasks.
+An example here would be to store XCom in S3 or GCS Bucket if the size of data that needs to be stored is larger
+than &lt;code&gt;XCom.MAX_XCOM_SIZE&lt;/code&gt; (48 KB).&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;PR&lt;/strong&gt;: &lt;a href=&#34;https://github.com/apache/airflow/pull/8560&#34; target=&#34;_blank&#34;&gt;https://github.com/apache/airflow/pull/8560&lt;/a&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;get-airflow-configs-with-sensitive-data-from-secret-backends&#34;&gt;Get Airflow configs with sensitive data from Secret Backends&lt;/h3&gt;
+
+&lt;p&gt;Users would be able to get the following Airflow configs from Secrets Backend like Hashicorp Vault:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;sql_alchemy_conn&lt;/code&gt; in [core] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;fernet_key&lt;/code&gt; in [core] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;broker_url&lt;/code&gt; in [celery] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;flower_basic_auth&lt;/code&gt; in [celery] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;result_backend&lt;/code&gt; in [celery] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;password&lt;/code&gt; in [atlas] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;smtp_password&lt;/code&gt; in [smtp] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;bind_password&lt;/code&gt; in [ldap] section&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;git_password&lt;/code&gt; in [kubernetes] section&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Further improving Airflow&amp;rsquo;s Secret Management story, from Airflow 1.10.12, users don&amp;rsquo;t need to hardcode
+the &lt;strong&gt;sensitive&lt;/strong&gt; config value in airflow.cfg nor then need to use an Environment variable to set this config.&lt;/p&gt;
+
+&lt;p&gt;For example, the metadata database connection string can either be set in airflow.cfg like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-ini&#34;&gt;[core]
+sql_alchemy_conn_secret = sql_alchemy_conn
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This will retrieve config option from the set Secret Backends.&lt;/p&gt;
+
+&lt;p&gt;As you can see you just need to add a &lt;code&gt;_secret&lt;/code&gt; suffix at the end of the actual config option
+and the value needs to be the &lt;strong&gt;key&lt;/strong&gt; which the Secrets backend will look for.&lt;/p&gt;
+
+&lt;p&gt;Similarly, &lt;code&gt;_secret&lt;/code&gt; config options can also be set using a corresponding environment variable. For example:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;export AIRFLOW__CORE__SQL_ALCHEMY_CONN_SECRET=sql_alchemy_conn
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;More details: &lt;a href=&#34;http://airflow.apache.org/docs/1.10.12/howto/set-config.html&#34; target=&#34;_blank&#34;&gt;http://airflow.apache.org/docs/1.10.12/howto/set-config.html&lt;/a&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;add-airflowclusterpolicyviolation-support-to-airflow-local-settings-py&#34;&gt;Add AirflowClusterPolicyViolation support to airflow_local_settings.py&lt;/h3&gt;
+
+&lt;p&gt;Users can use Cluster Policies to apply cluster-wide checks on Airflow
+tasks. You can raise &lt;a href=&#34;http://airflow.apache.org/docs/1.10.12/_api/airflow/exceptions/index.html#airflow.exceptions.AirflowClusterPolicyViolation&#34; target=&#34;_blank&#34;&gt;AirflowClusterPolicyViolation&lt;/a&gt;
+in a policy or task mutation hook to prevent a DAG from being
+imported or prevent a task from being executed if the task is not compliant with
+your check.&lt;/p&gt;
+
+&lt;p&gt;These checks are intended to help teams using Airflow to protect against common
+beginner errors that may get past a code reviewer, rather than as technical
+security controls.&lt;/p&gt;
+
+&lt;p&gt;For example, don&amp;rsquo;t run tasks without &lt;code&gt;airflow&lt;/code&gt; owners:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def task_must_have_owners(task):
+    if not task.owner or task.owner.lower() == conf.get(&#39;operators&#39;, &#39;default_owner&#39;):
+        raise AirflowClusterPolicyViolation(
+            &#39;Task must have non-None non-default owner. Current value: {}&#39;.format(task.owner))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;More details: &lt;a href=&#34;http://airflow.apache.org/docs/1.10.12/concepts.html#cluster-policies-for-custom-task-checks&#34; target=&#34;_blank&#34;&gt;http://airflow.apache.org/docs/1.10.12/concepts.html#cluster-policies-for-custom-task-checks&lt;/a&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;launch-pods-via-yaml-files-when-using-kubernetesexecutor-and-kubernetespodoperator&#34;&gt;Launch Pods via YAML files when using KubernetesExecutor and KubernetesPodOperator&lt;/h3&gt;
+
+&lt;p&gt;As of 1.10.12, users can launch pods via YAML files instead of passing various configurations.&lt;/p&gt;
+
+&lt;p&gt;To allow greater flexibility we have deprecated Airflow&amp;rsquo;s Pod class and instead now use classes and
+objects from the official Kubernetes API. The POD class will still work but raise a deprecation
+warning. This feature involved a pretty extensive rewrite of all of our pod creation code.&lt;/p&gt;
+
+&lt;p&gt;Initially, we were going to hold off on these features until Airflow 2.0. However, we soon
+realized that exposing these features in 1.10.x is crucial in preparing users for the 2.0 release to come.&lt;/p&gt;
+
+&lt;p&gt;Details: &lt;a href=&#34;https://github.com/apache/airflow/pull/6230&#34; target=&#34;_blank&#34;&gt;https://github.com/apache/airflow/pull/6230&lt;/a&gt; (&lt;a href=&#34;https://github.com/apache/airflow/commit/7aa0f472b57985a952a3e3d0a38f1b2535d93413&#34; target=&#34;_blank&#34;&gt;Backport commit&lt;/a&gt;)&lt;/p&gt;
+
+&lt;h2 id=&#34;updating-guide&#34;&gt;Updating Guide&lt;/h2&gt;
+
+&lt;p&gt;If you are updating Apache Airflow from a previous version to &lt;code&gt;1.10.12&lt;/code&gt;, please take a note of the following:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;Run &lt;code&gt;airflow upgradedb&lt;/code&gt; after &lt;code&gt;pip install -U apache-airflow==1.10.12&lt;/code&gt; as &lt;code&gt;1.10.12&lt;/code&gt; contains 1 database migration.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;As of airflow 1.10.12, using the &lt;code&gt;airflow.contrib.kubernetes.Pod&lt;/code&gt; class in the &lt;code&gt;pod_mutation_hook&lt;/code&gt; is now
+deprecated. Instead we recommend that users treat the pod parameter as a &lt;code&gt;kubernetes.client.models.V1Pod&lt;/code&gt; object.
+This means that users now have access to the full Kubernetes API when modifying airflow pods for mutating POD.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;Previously, when tasks skipped by SkipMixin (such as &lt;code&gt;BranchPythonOperator&lt;/code&gt;, &lt;code&gt;BaseBranchOperator&lt;/code&gt; and
+&lt;code&gt;ShortCircuitOperator&lt;/code&gt;) are cleared, they execute. Since 1.10.12, when such skipped tasks are cleared,
+they will be skipped again by the newly introduced &lt;code&gt;NotPreviouslySkippedDep&lt;/code&gt;.&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&#34;special-note&#34;&gt;Special Note&lt;/h2&gt;
+
+&lt;h3 id=&#34;python-2&#34;&gt;Python 2&lt;/h3&gt;
+
+&lt;p&gt;Python 2 has reached end of its life on Jan 2020. Airflow Master no longer supports Python 2.
+Airflow 1.10.* would be the last series to support Python 2.&lt;/p&gt;
+
+&lt;p&gt;We strongly recommend users to use Python &amp;gt;= 3.6&lt;/p&gt;
+
+&lt;h3 id=&#34;use-airflow-rbac-ui&#34;&gt;Use Airflow RBAC UI&lt;/h3&gt;
+
+&lt;p&gt;Airflow 1.10.12 ships with 2 UIs, the default is non-RBAC Flask-admin based UI and Flask-appbuilder based UI.&lt;/p&gt;
+
+&lt;p&gt;The Flask-AppBuilder (FAB) based UI allows Role-based Access Control and has more advanced features compared to
+the legacy Flask-admin based UI. This UI can be enabled by setting &lt;code&gt;rbac=True&lt;/code&gt; in &lt;code&gt;[webserver]&lt;/code&gt; section in
+your &lt;code&gt;airflow.cfg&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Flask-admin based UI is deprecated and new features won&amp;rsquo;t be ported to it. This UI will still be the default
+for 1.10.* series but would no longer be available from Airflow 2.0&lt;/p&gt;
+
+&lt;h3 id=&#34;we-have-moved-to-github-issues&#34;&gt;We have moved to GitHub Issues&lt;/h3&gt;
+
+&lt;p&gt;The Airflow Project has moved from &lt;a href=&#34;https://issues.apache.org/jira/projects/AIRFLOW/issues&#34; target=&#34;_blank&#34;&gt;JIRA&lt;/a&gt; to
+&lt;a href=&#34;https://github.com/apache/airflow/issues&#34; target=&#34;_blank&#34;&gt;GitHub&lt;/a&gt; for tracking issues.&lt;/p&gt;
+
+&lt;p&gt;So if you find any bugs in Airflow 1.10.12 please create a GitHub Issue for it.&lt;/p&gt;
+
+&lt;h2 id=&#34;list-of-contributors&#34;&gt;List of Contributors&lt;/h2&gt;
+
+&lt;p&gt;According to git shortlog, the following people contributed to the 1.10.12 release. Thank you to all contributors!&lt;/p&gt;
+
+&lt;p&gt;Alexander Sutcliffe, Andy, Aneesh Joseph, Ash Berlin-Taylor, Aviral Agrawal, BaoshanGu, Beni Ben zikry,
+Daniel Imberman, Daniel Standish, Danylo Baibak, Ephraim Anierobi, Felix Uellendall, Greg Neiheisel,
+Hartorn, Jacob Ferriero, Jannik F, Jarek Potiuk, Jinhui Zhang, Kamil Breguła, Kaxil Naik, Kurganov,
+Luis Magana, Max Arrich, Pete DeJoy, Sumit Maheshwari, Tomek Urbaszek, Vicken Simonian, Vinnie Guimaraes,
+William Tran, Xiaodong Deng, YI FU, Zikun Zhu, dewaldabrie, pulsar314, retornam, yuqian90&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>Blog: Apache Airflow 1.10.10</title>
+      <link>/blog/airflow-1.10.10/</link>
+      <pubDate>Thu, 09 Apr 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/airflow-1.10.10/</guid>
+      <description>
+        
+        
+        
+
+&lt;p&gt;Airflow 1.10.10 contains 199 commits since 1.10.9 and includes 11 new features, 43 improvements, 44 bug fixes, and several doc changes.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Details&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;PyPI&lt;/strong&gt;: &lt;a href=&#34;https://pypi.org/project/apache-airflow/1.10.10/&#34; target=&#34;_blank&#34;&gt;https://pypi.org/project/apache-airflow/1.10.10/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Docs&lt;/strong&gt;: &lt;a href=&#34;https://airflow.apache.org/docs/1.10.10/&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.10/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Changelog&lt;/strong&gt;: &lt;a href=&#34;http://airflow.apache.org/docs/1.10.10/changelog.html&#34; target=&#34;_blank&#34;&gt;http://airflow.apache.org/docs/1.10.10/changelog.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Some of the noteworthy new features (user-facing) are:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/8046&#34; target=&#34;_blank&#34;&gt;Allow user to chose timezone to use in the RBAC UI&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/7832&#34; target=&#34;_blank&#34;&gt;Add Production Docker image support&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://airflow.apache.org/docs/1.10.10/howto/use-alternative-secrets-backend.html&#34; target=&#34;_blank&#34;&gt;Allow Retrieving Airflow Connections &amp;amp; Variables from various Secrets backend&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://airflow.apache.org/docs/1.10.10/dag-serialization.html&#34; target=&#34;_blank&#34;&gt;Stateless Webserver using DAG Serialization&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/7880&#34; target=&#34;_blank&#34;&gt;Tasks with Dummy Operators are no longer sent to executor&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/7312&#34; target=&#34;_blank&#34;&gt;Allow passing DagRun conf when triggering dags via UI&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&#34;allow-user-to-chose-timezone-to-use-in-the-rbac-ui&#34;&gt;Allow user to chose timezone to use in the RBAC UI&lt;/h3&gt;
+
+&lt;p&gt;By default the Web UI will show times in UTC. It is possible to change the timezone shown by using the menu in the top
+ right (click on the clock to activate it):&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Screenshot&lt;/strong&gt;:
+&lt;img src=&#34;rbac-ui-timezone.gif&#34; alt=&#34;Allow user to chose timezone to use in the RBAC UI&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Details: &lt;a href=&#34;https://airflow.apache.org/docs/1.10.10/timezone.html#web-ui&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.10/timezone.html#web-ui&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Note&lt;/strong&gt;: This feature is only available for the RBAC UI (enabled using &lt;code&gt;rbac=True&lt;/code&gt; in &lt;code&gt;[webserver]&lt;/code&gt; section in your &lt;code&gt;airflow.cfg&lt;/code&gt;).&lt;/p&gt;
+
+&lt;h3 id=&#34;add-production-docker-image-support&#34;&gt;Add Production Docker image support&lt;/h3&gt;
+
+&lt;p&gt;There are brand new production images (alpha quality) available for Airflow 1.10.10. You can pull them from the
+&lt;a href=&#34;https://hub.docker.com/r/apache/airflow&#34; target=&#34;_blank&#34;&gt;Apache Airflow Dockerhub&lt;/a&gt; repository and start using it.&lt;/p&gt;
+
+&lt;p&gt;More information about using production images can be found in &lt;a href=&#34;https://github.com/apache/airflow/blob/master/IMAGES.rst#using-the-images&#34; target=&#34;_blank&#34;&gt;https://github.com/apache/airflow/blob/master/IMAGES.rst#using-the-images&lt;/a&gt;. Soon it will be updated with
+information how to use images using official helm chart.&lt;/p&gt;
+
+&lt;p&gt;To pull the images you can run one of the following commands:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;docker pull apache/airflow:1.10.10-python2.7&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;docker pull apache/airflow:1.10.10-python3.5&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;docker pull apache/airflow:1.10.10-python3.6&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;docker pull apache/airflow:1.10.10-python3.7&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;docker pull apache/airflow:1.10.10&lt;/code&gt; (uses Python 3.6)&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&#34;allow-retrieving-airflow-connections-variables-from-various-secrets-backend&#34;&gt;Allow Retrieving Airflow Connections &amp;amp; Variables from various Secrets backend&lt;/h3&gt;
+
+&lt;p&gt;From Airflow 1.10.10, users would be able to get Airflow Variables from Environment Variables.&lt;/p&gt;
+
+&lt;p&gt;Details: &lt;a href=&#34;https://airflow.apache.org/docs/1.10.10/concepts.html#storing-variables-in-environment-variables&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.10/concepts.html#storing-variables-in-environment-variables&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;A new concept of Secrets Backend has been introduced to retrieve Airflow Connections and Variables.&lt;/p&gt;
+
+&lt;p&gt;From Airflow 1.10.10, users can retrieve Connections &amp;amp; Variables using the same syntax (no DAG code change is required),
+from a secret backend defined in &lt;code&gt;airflow.cfg&lt;/code&gt;. If no backend is defined, Airflow falls-back to Environment Variables
+and then Metadata DB.&lt;/p&gt;
+
+&lt;p&gt;Check &lt;a href=&#34;https://airflow.apache.org/docs/1.10.10/howto/use-alternative-secrets-backend.html#configuration&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.10/howto/use-alternative-secrets-backend.html#configuration&lt;/a&gt; for details on how-to
+configure Secrets backend.&lt;/p&gt;
+
+&lt;p&gt;As of 1.10.10, Airflow supports the following Secret Backends:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Hashicorp Vault&lt;/li&gt;
+&lt;li&gt;GCP Secrets Manager&lt;/li&gt;
+&lt;li&gt;AWS Parameters Store&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Details: &lt;a href=&#34;https://airflow.apache.org/docs/1.10.10/howto/use-alternative-secrets-backend.html&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.10/howto/use-alternative-secrets-backend.html&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Example configuration to use Hashicorp Vault as the backend:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-ini&#34;&gt;[secrets]
+backend = airflow.contrib.secrets.hashicorp_vault.VaultBackend
+backend_kwargs = {&amp;quot;url&amp;quot;: &amp;quot;http://127.0.0.1:8200&amp;quot;, &amp;quot;connections_path&amp;quot;: &amp;quot;connections&amp;quot;, &amp;quot;variables_path&amp;quot;: &amp;quot;variables&amp;quot;, &amp;quot;mount_point&amp;quot;: &amp;quot;airflow&amp;quot;}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;stateless-webserver-using-dag-serialization&#34;&gt;Stateless Webserver using DAG Serialization&lt;/h3&gt;
+
+&lt;p&gt;The Webserver can now run without access to DAG Files when DAG Serialization is turned on.
+The 2 limitations we had in 1.10.7-1.10.9 (
+&lt;a href=&#34;https://airflow.apache.org/docs/1.10.7/dag-serialization.html#limitations)&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.7/dag-serialization.html#limitations)&lt;/a&gt;
+have been resolved.&lt;/p&gt;
+
+&lt;p&gt;The main advantage of this would be reduction in Webserver startup time for large number of DAGs.
+Without DAG Serialization all the DAGs are loaded in the DagBag during the
+Webserver startup.&lt;/p&gt;
+
+&lt;p&gt;With DAG Serialization, an empty DagBag is created and
+Dags are loaded from DB only when needed (i.e. when a particular DAG is
+clicked on in the home page)&lt;/p&gt;
+
+&lt;p&gt;Details: &lt;a href=&#34;http://airflow.apache.org/docs/1.10.10/dag-serialization.html&#34; target=&#34;_blank&#34;&gt;http://airflow.apache.org/docs/1.10.10/dag-serialization.html&lt;/a&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;tasks-using-dummy-operators-are-no-longer-sent-to-executor&#34;&gt;Tasks using Dummy Operators are no longer sent to executor&lt;/h3&gt;
+
+&lt;p&gt;The Dummy operators does not actually do any work and are mostly used for organizing/grouping tasks along
+with BranchPythonOperator.&lt;/p&gt;
+
+&lt;p&gt;Previously, when using Kubernetes Executor, the executor would spin up a whole worker pod to execute a dummy task.
+With Airflow 1.10.10 tasks using Dummy Operators would be scheduled &amp;amp; evaluated by the Scheduler but not sent to the
+Executor. This should significantly improve execution time and resource usage.&lt;/p&gt;
+
+&lt;h3 id=&#34;allow-passing-dagrun-conf-when-triggering-dags-via-ui&#34;&gt;Allow passing DagRun conf when triggering dags via UI&lt;/h3&gt;
+
+&lt;p&gt;When triggering a DAG from the CLI or the REST API, it s possible to pass configuration for the DAG run as a JSON blob.&lt;/p&gt;
+
+&lt;p&gt;From Airflow 1.10.10, when a user clicks on Trigger Dag button, a new screen confirming the trigger request, and allowing the user to pass a JSON configuration
+blob would be show.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Screenshot&lt;/strong&gt;:
+&lt;img src=&#34;trigger-dag-conf.png&#34; alt=&#34;Allow passing DagRun conf when triggering dags via UI&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Details: &lt;a href=&#34;https://github.com/apache/airflow/pull/7312&#34; target=&#34;_blank&#34;&gt;https://github.com/apache/airflow/pull/7312&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;updating-guide&#34;&gt;Updating Guide&lt;/h2&gt;
+
+&lt;p&gt;If you are updating Apache Airflow from a previous version to &lt;code&gt;1.10.10&lt;/code&gt;, please take a note of the following:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;Run &lt;code&gt;airflow upgradedb&lt;/code&gt; after &lt;code&gt;pip install -U apache-airflow==1.10.10&lt;/code&gt; as &lt;code&gt;1.10.10&lt;/code&gt; contains 3 database migrations.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;If you have used &lt;code&gt;none_failed&lt;/code&gt; trigger rule in your DAG, change it to use the new &lt;code&gt;none_failed_or_skipped&lt;/code&gt; trigger rule.
+As previously implemented, the actual behavior of &lt;code&gt;none_failed&lt;/code&gt; trigger rule would skip the current task if all parents of the task
+had also skipped. This was not in-line with what was documented about that trigger rule. We have changed the implementation to match
+the documentation, hence if you need the old behavior use &lt;code&gt;none_failed_or_skipped&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;More details in &lt;a href=&#34;https://github.com/apache/airflow/pull/7464&#34; target=&#34;_blank&#34;&gt;https://github.com/apache/airflow/pull/7464&lt;/a&gt;.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;Setting empty string to a Airflow Variable will now return an empty string, it previously returned &lt;code&gt;None&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Example:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;gt;&amp;gt; Variable.set(&#39;test_key&#39;, &#39;&#39;)
+&amp;gt;&amp;gt; Variable.get(&#39;test_key&#39;)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The above code returned &lt;code&gt;None&lt;/code&gt; previously, now it will return &amp;ldquo;.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;When a task is marked as &lt;code&gt;success&lt;/code&gt; by a user in Airflow UI, function defined in &lt;code&gt;on_success_callback&lt;/code&gt; will be called.&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&#34;special-note-deprecations&#34;&gt;Special Note / Deprecations&lt;/h2&gt;
+
+&lt;h3 id=&#34;python-2&#34;&gt;Python 2&lt;/h3&gt;
+
+&lt;p&gt;Python 2 has reached end of its life on Jan 2020. Airflow Master no longer supports Python 2.
+Airflow 1.10.* would be the last series to support Python 2.&lt;/p&gt;
+
+&lt;p&gt;We strongly recommend users to use Python &amp;gt;= 3.6&lt;/p&gt;
+
+&lt;h3 id=&#34;use-airflow-rbac-ui&#34;&gt;Use Airflow RBAC UI&lt;/h3&gt;
+
+&lt;p&gt;Airflow 1.10.10 ships with 2 UIs, the default is non-RBAC Flask-admin based UI and Flask-appbuilder based UI.&lt;/p&gt;
+
+&lt;p&gt;The Flask-AppBuilder (FAB) based UI allows Role-based Access Control and has more advanced features compared to
+the legacy Flask-admin based UI. This UI can be enabled by setting &lt;code&gt;rbac=True&lt;/code&gt; in &lt;code&gt;[webserver]&lt;/code&gt; section in your &lt;code&gt;airflow.cfg&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Flask-admin based UI is deprecated and new features won&amp;rsquo;t be ported to it. This UI will still be the default
+for 1.10.* series but would no longer be available from Airflow 2.0&lt;/p&gt;
+
+&lt;h3 id=&#34;running-airflow-on-macos&#34;&gt;Running Airflow on MacOS&lt;/h3&gt;
+
+&lt;p&gt;Run &lt;code&gt;export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES&lt;/code&gt; in your scheduler environmentIf you are running Airflow on MacOS
+and get the following error in the Scheduler logs:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;objc[1873]: +[__NSPlaceholderDate initialize] may have been in progress in another thread when fork() was called.
+objc[1873]: +[__NSPlaceholderDate initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This error occurs because of added security to restrict multiprocessing &amp;amp; multithreading in Mac OS High Sierra and above.&lt;/p&gt;
+
+&lt;h3 id=&#34;we-have-moved-to-github-issues&#34;&gt;We have moved to GitHub Issues&lt;/h3&gt;
+
+&lt;p&gt;The Airflow Project has moved from &lt;a href=&#34;https://issues.apache.org/jira/projects/AIRFLOW/issues&#34; target=&#34;_blank&#34;&gt;JIRA&lt;/a&gt; to
+&lt;a href=&#34;https://github.com/apache/airflow/issues&#34; target=&#34;_blank&#34;&gt;GitHub&lt;/a&gt; for tracking issues.&lt;/p&gt;
+
+&lt;p&gt;So if you find any bugs in Airflow 1.10.10 please create a GitHub Issue for it.&lt;/p&gt;
+
+&lt;h2 id=&#34;list-of-contributors&#34;&gt;List of Contributors&lt;/h2&gt;
+
+&lt;p&gt;According to git shortlog, the following people contributed to the 1.10.10 release. Thank you to all contributors!&lt;/p&gt;
+
+&lt;p&gt;ANiteckiP, Alex Guziel, Alex Lue, Anita Fronczak, Ash Berlin-Taylor, Benji Visser, Bhavika Tekwani, Brad Dettmer, Chris McLennon, Cooper Gillan, Daniel Imberman, Daniel Standish, Felix Uellendall, Jarek Potiuk, Jiajie Zhong, Jithin Sukumar, Kamil Breguła, Kaxil Naik, Kengo Seki, Kris, Kumpan Anton, Lokesh Lal, Louis Guitton, Louis Simoneau, Luyao Yang, Noël Bardelot, Omair Khan, Philipp Großelfinger, Ping Zhang, RasPavel, Ray, Robin Edwards, Ry Walker, Saurabh, Sebastian Brandt, Tomek Kzukowski, Tomek Urbaszek, Van-Duyet Le, Xiaodong Deng, Xinbin Huang, Yu Qian, Zacharya, atrbgithub, cong-zhu, retornam&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>Blog: Apache Airflow 1.10.8 &amp; 1.10.9</title>
+      <link>/blog/airflow-1.10.8-1.10.9/</link>
+      <pubDate>Sun, 23 Feb 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/airflow-1.10.8-1.10.9/</guid>
+      <description>
+        
+        
+        
+
+&lt;p&gt;Airflow 1.10.8 contains 160 commits since 1.10.7 and includes 4 new features, 42 improvements, 36 bug fixes, and several doc changes.&lt;/p&gt;
+
+&lt;p&gt;We released 1.10.9 on the same day as one of the Flask dependencies (Werkzeug) released 1.0 which broke Airflow 1.10.8.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Details&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;PyPI&lt;/strong&gt;: &lt;a href=&#34;https://pypi.org/project/apache-airflow/1.10.9/&#34; target=&#34;_blank&#34;&gt;https://pypi.org/project/apache-airflow/1.10.9/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Docs&lt;/strong&gt;: &lt;a href=&#34;https://airflow.apache.org/docs/1.10.9/&#34; target=&#34;_blank&#34;&gt;https://airflow.apache.org/docs/1.10.9/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Changelog (1.10.8)&lt;/strong&gt;: &lt;a href=&#34;http://airflow.apache.org/docs/1.10.8/changelog.html#airflow-1-10-8-2020-01-07&#34; target=&#34;_blank&#34;&gt;http://airflow.apache.org/docs/1.10.8/changelog.html#airflow-1-10-8-2020-01-07&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Changelog (1.10.9)&lt;/strong&gt;: &lt;a href=&#34;http://airflow.apache.org/docs/1.10.9/changelog.html#airflow-1-10-9-2020-02-10&#34; target=&#34;_blank&#34;&gt;http://airflow.apache.org/docs/1.10.9/changelog.html#airflow-1-10-9-2020-02-10&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Some of the noteworthy new features (user-facing) are:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/6489&#34; target=&#34;_blank&#34;&gt;Add tags to DAGs and use it for filtering in the UI (RBAC only)&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://airflow.apache.org/docs/1.10.9/executor/debug.html&#34; target=&#34;_blank&#34;&gt;New Executor: DebugExecutor for Local debugging from your IDE&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/7281&#34; target=&#34;_blank&#34;&gt;Allow passing conf in &amp;ldquo;Add DAG Run&amp;rdquo; (Triggered Dags) view&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/apache/airflow/pull/7038&#34; target=&#34;_blank&#34;&gt;Allow dags to run for future execution dates for manually triggered DAGs (only if &lt;code&gt;schedule_interval=None&lt;/code&gt;)&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://airflow.apache.org/docs/1.10.9/configurations-ref.html&#34; target=&#34;_blank&#34;&gt;Dedicated page in documentation for all configs in airflow.cfg&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&#34;add-tags-to-dags-and-use-it-for-filtering-in-the-ui&#34;&gt;Add tags to DAGs and use it for filtering in the UI&lt;/h3&gt;
+
+&lt;p&gt;In order to filter DAGs (e.g by team), you can add tags in each dag. The filter is saved in a cookie and can be reset by the reset button.&lt;/p&gt;
+
+&lt;p&gt;For example:&lt;/p&gt;
+
+&lt;p&gt;In your Dag file, pass a list of tags you want to add to DAG object:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;dag = DAG(
+    dag_id=&#39;example_dag_tag&#39;,
+    schedule_interval=&#39;0 0 * * *&#39;,
+    tags=[&#39;example&#39;]
+)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;strong&gt;Screenshot&lt;/strong&gt;:
+&lt;img src=&#34;airflow-dag-tags.png&#34; alt=&#34;Add filter by DAG tags&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Note&lt;/strong&gt;: This feature is only available for the RBAC UI (enabled using &lt;code&gt;rbac=True&lt;/code&gt; in &lt;code&gt;[webserver]&lt;/code&gt; section in your &lt;code&gt;airflow.cfg&lt;/code&gt;).&lt;/p&gt;
+
+&lt;h2 id=&#34;special-note-deprecations&#34;&gt;Special Note / Deprecations&lt;/h2&gt;
+
+&lt;h3 id=&#34;python-2&#34;&gt;Python 2&lt;/h3&gt;
+
+&lt;p&gt;Python 2 has reached end of its life on Jan 2020. Airflow Master no longer supports Python 2.
+Airflow 1.10.* would be the last series to support Python 2.&lt;/p&gt;
+
+&lt;p&gt;We strongly recommend users to use Python &amp;gt;= 3.6&lt;/p&gt;
+
+&lt;h3 id=&#34;use-airflow-rbac-ui&#34;&gt;Use Airflow RBAC UI&lt;/h3&gt;
+
+&lt;p&gt;Airflow 1.10.9 ships with 2 UIs, the default is non-RBAC Flask-admin based UI and Flask-appbuilder based UI.&lt;/p&gt;
+
+&lt;p&gt;The Flask-AppBuilder (FAB) based UI is allows Role-based Access Control and has more advanced features compared to
+the legacy Flask-admin based UI. This UI can be enabled by setting &lt;code&gt;rbac=True&lt;/code&gt; in &lt;code&gt;[webserver]&lt;/code&gt; section in your &lt;code&gt;airflow.cfg&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Flask-admin based UI is deprecated and new features won&amp;rsquo;t be ported to it. This UI will still be the default
+for 1.10.* series but would no longer be available from Airflow 2.0&lt;/p&gt;
+
+&lt;h2 id=&#34;list-of-contributors&#34;&gt;List of Contributors&lt;/h2&gt;
+
+&lt;p&gt;According to git shortlog, the following people contributed to the 1.10.8 and 1.10.9 release. Thank you to all contributors!&lt;/p&gt;
+
+&lt;p&gt;Anita Fronczak, Ash Berlin-Taylor, BasPH, Bharat Kashyap, Bharath Palaksha, Bhavika Tekwani, Bjorn Olsen, Brian Phillips, Cooper Gillan, Daniel Cohen, Daniel Imberman, Daniel Standish, Gabriel Eckers, Hossein Torabi, Igor Khrol, Jacob, Jarek Potiuk, Jay, Jiajie Zhong, Jithin Sukumar, Kamil Breguła, Kaxil Naik, Kousuke Saruta, Mustafa Gök, Noël Bardelot, Oluwafemi Sule, Pete DeJoy, QP Hou, Qian Yu, Robin Edwards, Ry Walker, Steven van Rossum, Tomek Urbaszek, Xinbin Huang, Yuen-Kuei Hsueh, Yu Qian, Zacharya, ZxMYS, rconroy293, tooptoop4&lt;/p&gt;
+
+      </description>
+    </item>
+    
+  </channel>
+</rss>
